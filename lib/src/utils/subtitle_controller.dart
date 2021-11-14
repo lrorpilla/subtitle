@@ -114,54 +114,19 @@ abstract class ISubtitleController {
         }
       }
 
-      // // Get rid of duplicate previous values from automatic captions
-      // if (subtitleType == SubtitleType.webvtt) {
-      //   for (var i = 1; i < subtitleList.length; i++) {
-      //     Subtitle previousSubtitle = subtitleList[i - 1];
-      //     Subtitle currentSubtitle = subtitleList[i];
-
-      //     var newSubtitle = Subtitle(
-      //       data:
-      //           currentSubtitle.data.replaceAll(previousSubtitle.data + '\n', ''),
-      //       start: currentSubtitle.start,
-      //       end: currentSubtitle.end,
-      //     );
-
-      //     subtitleList.insert(i, newSubtitle);
-      //     subtitleList.remove(currentSubtitle);
-      //   }
-
-      //   for (var i = 1; i < subtitleList.length; i++) {
-      //     var previousSubtitle = subtitleList[i - 1];
-      //     var currentSubtitle = subtitleList[i];
-
-      //     if (previousSubtitle.data == currentSubtitle.data) {
-      //       var newSubtitle = Subtitle(
-      //         data: '${previousSubtitle.data}',
-      //         start: previousSubtitle.start,
-      //         end: currentSubtitle.end,
-      //       );
-
-      //       subtitleList.insert(i, newSubtitle);
-      //       subtitleList.remove(previousSubtitle);
-      //       subtitleList.remove(currentSubtitle);
-      //     }
-      //   }
-      // }
-    }
-
-    if (subtitleList.length >= 2) {
-      Subtitle secondLastSubtitle = subtitleList[subtitleList.length - 2];
-      Subtitle lastSubtitle = subtitleList[subtitleList.length - 1];
-      if (lastSubtitle.end.inMilliseconds <
-          secondLastSubtitle.start.inMilliseconds) {
-        subtitleList.remove(lastSubtitle);
+      if (subtitleList.length >= 2) {
+        Subtitle secondLastSubtitle = subtitleList[subtitleList.length - 2];
+        Subtitle lastSubtitle = subtitleList[subtitleList.length - 1];
+        if (lastSubtitle.end.inMilliseconds <
+            secondLastSubtitle.start.inMilliseconds) {
+          subtitleList.remove(lastSubtitle);
+        }
       }
-    }
 
-    for (int i = 0; i < subtitleList.length; i++) {
-      subtitleList[i].index = i + 1;
-      subtitleList[i].data = sanitizeSubtitleArtifacts(subtitleList[i].data);
+      for (int i = 0; i < subtitleList.length; i++) {
+        subtitleList[i].index = i + 1;
+        subtitleList[i].data = sanitizeSubtitleArtifacts(subtitleList[i].data);
+      }
     }
 
     return subtitleList;
