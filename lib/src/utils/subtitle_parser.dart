@@ -81,9 +81,7 @@ class SubtitleParser extends ISubtitleParser {
         index = int.parse(matcher.group(1) ?? '${i + 1}');
       }
 
-      final data = shouldNormalizeText
-          ? normalize(matcher.group(11)?.trim() ?? '')
-          : matcher.group(11)?.trim() ?? '';
+      final data = matcher.group(11)?.trim() ?? '';
 
       subtitles.add(Subtitle(
         start: _getStartDuration(matcher),

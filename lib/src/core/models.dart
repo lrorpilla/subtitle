@@ -1,19 +1,19 @@
 /// This model class store the subtitle data.
 class Subtitle {
   /// Current index number of this subtitle in its file.
-  final int index;
+  int index;
 
   /// Store the current text for periode that started with [start] and
   /// end with [end].
-  final String data;
+  String data;
 
   /// The start time of this text periode, comparited with video time.
-  final Duration start;
+  Duration start;
 
   /// The end time of this text periode, comparited with video time.
-  final Duration end;
+  Duration end;
 
-  const Subtitle({
+  Subtitle({
     required this.start,
     required this.end,
     required this.data,
