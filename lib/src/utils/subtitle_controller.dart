@@ -164,8 +164,8 @@ abstract class ISubtitleController {
       parsed = getSubtitlesData(providerObject.data);
     }
 
-    List<Subtitle> flattened = flattenSubtitles(parsed);
-    subtitles.addAll(flattened);
+    // List<Subtitle> flattened = flattenSubtitles(parsed);
+    subtitles.addAll(parsed);
 
     sort();
     initialized = true;
