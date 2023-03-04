@@ -46,6 +46,8 @@ abstract class ISubtitleController {
   List<Subtitle> multiDurationSearch(Duration duration);
 
   List<Subtitle> flattenSubtitles(List<Subtitle> subtitleList) {
+    subtitleList.removeWhere((e) => e.data.trim().isEmpty);
+
     for (var i = 1; i < subtitleList.length; i++) {
       var previousSubtitle = subtitleList[i - 1];
       var currentSubtitle = subtitleList[i];
