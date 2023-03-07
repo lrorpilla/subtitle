@@ -7,9 +7,17 @@ class SubtitleObject {
   /// The current subtitle format type of current file.
   final SubtitleType type;
 
+  /// Used to adjust parsed duration easily if required.
+  final Duration startOffset;
+
+  /// Used to adjust parsed duration easily if required.
+  final Duration endOffset;
+
   const SubtitleObject({
     required this.data,
     required this.type,
+    this.startOffset = Duration.zero,
+    this.endOffset = Duration.zero,
   });
 
   @override

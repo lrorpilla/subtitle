@@ -96,10 +96,14 @@ abstract class SubtitleProvider {
   factory SubtitleProvider.fromString({
     required String data,
     required SubtitleType type,
+    Duration startOffset = Duration.zero,
+    Duration endOffset = Duration.zero,
   }) =>
       StringSubtitle(
         data: data,
         type: type,
+        startOffset: startOffset,
+        endOffset: endOffset,
       );
 
   /// Abstract method return an instance of [SubtitleObject].
@@ -146,10 +150,14 @@ class NetworkSubtitle extends SubtitleProvider {
   /// The url of subtitle file on the internet.
   final Uri url;
   final SubtitleType? type;
+  final Duration startOffset;
+  final Duration endOffset;
 
   const NetworkSubtitle(
     this.url, {
     this.type,
+    this.startOffset = const Duration(),
+    this.endOffset = const Duration(),
   });
 
   @override
@@ -162,7 +170,12 @@ class NetworkSubtitle extends SubtitleProvider {
     final ext = extension(url.path);
     final type = this.type ?? getSubtitleType(ext);
 
-    return SubtitleObject(data: data, type: type);
+    return SubtitleObject(
+      data: data,
+      type: type,
+      startOffset: startOffset,
+      endOffset: endOffset,
+    );
   }
 }
 
@@ -184,10 +197,14 @@ class FileSubtitle extends SubtitleProvider {
   /// The current file that having subtitle data.
   final File file;
   final SubtitleType? type;
+  final Duration startOffset;
+  final Duration endOffset;
 
   const FileSubtitle(
     this.file, {
     this.type,
+    this.startOffset = const Duration(),
+    this.endOffset = const Duration(),
   });
 
   @override
@@ -200,7 +217,12 @@ class FileSubtitle extends SubtitleProvider {
     final ext = extension(file.path);
     final type = this.type ?? getSubtitleType(ext);
 
-    return SubtitleObject(data: data, type: type);
+    return SubtitleObject(
+      data: data,
+      type: type,
+      startOffset: startOffset,
+      endOffset: endOffset,
+    );
   }
 }
 
@@ -236,13 +258,21 @@ class FileSubtitle extends SubtitleProvider {
 class StringSubtitle extends SubtitleProvider {
   final String data;
   final SubtitleType type;
+  final Duration startOffset;
+  final Duration endOffset;
 
   const StringSubtitle({
     required this.data,
     required this.type,
+    required this.startOffset,
+    required this.endOffset,
   });
 
   @override
-  Future<SubtitleObject> getSubtitle() async =>
-      SubtitleObject(data: data, type: type);
+  Future<SubtitleObject> getSubtitle() async => SubtitleObject(
+        data: data,
+        type: type,
+        startOffset: startOffset,
+        endOffset: endOffset,
+      );
 }

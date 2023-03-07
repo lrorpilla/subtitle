@@ -1,185 +1,11 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 import '../core/exceptions.dart';
 import '../core/models.dart';
 import 'subtitle_parser.dart';
 import 'subtitle_provider.dart';
 import 'types.dart';
-
-/// The base class of all subtitles controller object.
-abstract class ISubtitleController {
-  //! Final fields
-  /// Store the subtitle provider.
-  final SubtitleProvider _provider;
-
-  /// Store the subtitles objects after decoded.
-  final List<Subtitle> subtitles;
-
-  //! Later and Nullable fields
-  /// The parser class, maybe still null if you are not initial the controller.
-  ISubtitleParser? _parser;
-
-  ISubtitleController({
-    required SubtitleProvider provider,
-  })  : _provider = provider,
-        subtitles = List.empty(growable: true);
-
-  //! Getters
-
-  /// Get the parser class
-  ISubtitleParser get parser {
-    if (initialized) return _parser!;
-    throw NotInitializedException();
-  }
-
-  /// Return the current subtitle provider
-  SubtitleProvider get provider => _provider;
-
-  /// Check it the controller is initial or not.
-  bool initialized = false;
-
-  //! Abstract methods
-  /// Use this method to customize your search algorithm.
-  Subtitle? durationSearch(Duration duration);
-
-  /// To get one or more subtitles in same duration range.
-  List<Subtitle> multiDurationSearch(Duration duration);
-
-  List<Subtitle> flattenSubtitles(List<Subtitle> subtitleList) {
-    subtitleList.removeWhere((e) => e.data.trim().isEmpty);
-
-    for (var i = 1; i < subtitleList.length; i++) {
-      var previousSubtitle = subtitleList[i - 1];
-      var currentSubtitle = subtitleList[i];
-
-      if (previousSubtitle.start == currentSubtitle.start &&
-          previousSubtitle.end == currentSubtitle.end) {
-        // Recombine only if they are not the same subtitle
-        var newSubtitle = Subtitle(
-          data: previousSubtitle.data == currentSubtitle.data
-              ? '${previousSubtitle.data}'
-              : '${previousSubtitle.data}\n${currentSubtitle.data}',
-          start: currentSubtitle.start,
-          end: currentSubtitle.end,
-          index: previousSubtitle.index,
-        );
-
-        subtitleList.insert(i, newSubtitle);
-        subtitleList.remove(previousSubtitle);
-        subtitleList.remove(currentSubtitle);
-      }
-    }
-
-    // Attempt this recombination a lot to stamp out stubborn repeats
-    // This is not the best way to do this
-    for (var i = 0; i < 10; i++) {
-      // Recombine subtitles if they are the same value and next to each other
-      for (var i = 1; i < subtitleList.length; i++) {
-        var previousSubtitle = subtitleList[i - 1];
-        var currentSubtitle = subtitleList[i];
-
-        if (previousSubtitle.data == currentSubtitle.data &&
-            previousSubtitle.end.inMilliseconds ==
-                currentSubtitle.start.inMilliseconds) {
-          var newSubtitle = Subtitle(
-            data: '${previousSubtitle.data}',
-            start: previousSubtitle.start,
-            end: currentSubtitle.end,
-            index: previousSubtitle.index,
-          );
-
-          subtitleList.insert(i, newSubtitle);
-          subtitleList.remove(previousSubtitle);
-          subtitleList.remove(currentSubtitle);
-        }
-      }
-
-      // Recombine subtitles if they are the same value and next to each other
-      for (var i = 1; i < subtitleList.length; i++) {
-        var previousSubtitle = subtitleList[i - 1];
-        var currentSubtitle = subtitleList[i];
-
-        if (previousSubtitle.data == currentSubtitle.data &&
-            500 >
-                (currentSubtitle.start.inMilliseconds -
-                    previousSubtitle.end.inMilliseconds)) {
-          var newSubtitle = Subtitle(
-            data: '${previousSubtitle.data}',
-            start: previousSubtitle.start,
-            end: currentSubtitle.end,
-            index: previousSubtitle.index,
-          );
-
-          subtitleList.insert(i, newSubtitle);
-          subtitleList.remove(previousSubtitle);
-          subtitleList.remove(currentSubtitle);
-        }
-      }
-
-      if (subtitleList.length >= 2) {
-        Subtitle secondLastSubtitle = subtitleList[subtitleList.length - 2];
-        Subtitle lastSubtitle = subtitleList[subtitleList.length - 1];
-        if (lastSubtitle.end.inMilliseconds <
-            secondLastSubtitle.start.inMilliseconds) {
-          subtitleList.remove(lastSubtitle);
-        }
-      }
-
-      for (int i = 0; i < subtitleList.length; i++) {
-        subtitleList[i].index = i + 1;
-        subtitleList[i].data = sanitizeSubtitleArtifacts(subtitleList[i].data);
-      }
-    }
-
-    return subtitleList;
-  }
-
-  String sanitizeSubtitleArtifacts(String unsanitizedContent) {
-    RegExp exp = RegExp(r"<[^>]*>", multiLine: true, caseSensitive: true);
-
-    String sanitizedContent = unsanitizedContent.replaceAll(exp, '');
-    sanitizedContent = sanitizedContent.replaceAll(
-        RegExp(r'{(.*?)}', caseSensitive: false), '');
-
-    sanitizedContent = sanitizedContent.replaceAll("<br>", "\n");
-    sanitizedContent = sanitizedContent.replaceAll('&amp;', '&');
-    sanitizedContent = sanitizedContent.replaceAll('&apos;', '\'');
-    sanitizedContent = sanitizedContent.replaceAll('&#39;', '\'');
-    sanitizedContent = sanitizedContent.replaceAll('&quot;', '\"');
-    sanitizedContent = sanitizedContent.replaceAll('&amp;', '');
-    sanitizedContent = sanitizedContent.replaceAll('\\n', '\n');
-    sanitizedContent = sanitizedContent.replaceAll('​', '');
-
-    return sanitizedContent;
-  }
-
-  //! Virual methods
-  Future<void> initial() async {
-    if (initialized) return;
-    final providerObject = await _provider.getSubtitle();
-    _parser = SubtitleParser(providerObject);
-
-    List<Subtitle> parsed = [];
-    if (_parser!.object.type != SubtitleType.srt) {
-      parsed = _parser!.parsing();
-    } else {
-      parsed = getSubtitlesData(providerObject.data);
-    }
-
-    List<Subtitle> flattened = flattenSubtitles(parsed);
-    subtitles.addAll(flattened);
-
-    sort();
-    initialized = true;
-  }
-
-  /// Sort all subtitles object from smaller duration to larger duration.
-  void sort() => subtitles.sort((s1, s2) => s1.compareTo(s2));
-
-  /// Get all subtitles as a single string, you can separate between subtitles
-  /// using `separator`, the default is `, `.
-  String getAll([String separator = ', ']) => subtitles.join(separator);
-}
 
 // Straight from flutter_subtitle_wrapper
 List<Subtitle> getSubtitlesData(
@@ -221,13 +47,187 @@ List<Subtitle> getSubtitlesData(
       Subtitle(
         start: startTime,
         end: endTime,
-        data: text ?? "",
+        data: text ?? '',
         index: subtitleList.length + 1,
       ),
     );
   }
 
   return subtitleList;
+}
+
+List<Subtitle> flattenSubtitles(List<Subtitle> subtitleList) {
+  String sanitizeSubtitleArtifacts(String unsanitizedContent) {
+    var exp = RegExp(r'<[^>]*>', multiLine: true, caseSensitive: true);
+
+    var sanitizedContent = unsanitizedContent.replaceAll(exp, '');
+    sanitizedContent = sanitizedContent.replaceAll(
+        RegExp(r'{(.*?)}', caseSensitive: false), '');
+
+    sanitizedContent = sanitizedContent.replaceAll('<br>', '\n');
+    sanitizedContent = sanitizedContent.replaceAll('&amp;', '&');
+    sanitizedContent = sanitizedContent.replaceAll('&apos;', '\'');
+    sanitizedContent = sanitizedContent.replaceAll('&#39;', '\'');
+    sanitizedContent = sanitizedContent.replaceAll('&nbsp;', '\'');
+    sanitizedContent = sanitizedContent.replaceAll('&quot;', '\"');
+    sanitizedContent = sanitizedContent.replaceAll('&amp;', '');
+    sanitizedContent = sanitizedContent.replaceAll('\\n', '\n');
+    sanitizedContent = sanitizedContent.replaceAll('​', '');
+
+    return sanitizedContent;
+  }
+
+  subtitleList.removeWhere((e) => e.data.trim().isEmpty);
+
+  for (var i = 1; i < subtitleList.length; i++) {
+    var previousSubtitle = subtitleList[i - 1];
+    var currentSubtitle = subtitleList[i];
+
+    if (previousSubtitle.start == currentSubtitle.start &&
+        previousSubtitle.end == currentSubtitle.end) {
+      // Recombine only if they are not the same subtitle
+      var newSubtitle = Subtitle(
+        data: previousSubtitle.data == currentSubtitle.data
+            ? '${previousSubtitle.data}'
+            : '${previousSubtitle.data}\n${currentSubtitle.data}',
+        start: currentSubtitle.start,
+        end: currentSubtitle.end,
+        index: previousSubtitle.index,
+      );
+
+      subtitleList.insert(i, newSubtitle);
+      subtitleList.remove(previousSubtitle);
+      subtitleList.remove(currentSubtitle);
+    }
+  }
+
+  // Attempt this recombination a lot to stamp out stubborn repeats
+  // This is not the best way to do this
+  for (var i = 0; i < 10; i++) {
+    // Recombine subtitles if they are the same value and next to each other
+    for (var i = 1; i < subtitleList.length; i++) {
+      var previousSubtitle = subtitleList[i - 1];
+      var currentSubtitle = subtitleList[i];
+
+      if (previousSubtitle.data == currentSubtitle.data &&
+          previousSubtitle.end.inMilliseconds ==
+              currentSubtitle.start.inMilliseconds) {
+        var newSubtitle = Subtitle(
+          data: '${previousSubtitle.data}',
+          start: previousSubtitle.start,
+          end: currentSubtitle.end,
+          index: previousSubtitle.index,
+        );
+
+        subtitleList.insert(i, newSubtitle);
+        subtitleList.remove(previousSubtitle);
+        subtitleList.remove(currentSubtitle);
+      }
+    }
+
+    // Recombine subtitles if they are the same value and next to each other
+    for (var i = 1; i < subtitleList.length; i++) {
+      var previousSubtitle = subtitleList[i - 1];
+      var currentSubtitle = subtitleList[i];
+
+      if (previousSubtitle.data == currentSubtitle.data &&
+          500 >
+              (currentSubtitle.start.inMilliseconds -
+                  previousSubtitle.end.inMilliseconds)) {
+        var newSubtitle = Subtitle(
+          data: '${previousSubtitle.data}',
+          start: previousSubtitle.start,
+          end: currentSubtitle.end,
+          index: previousSubtitle.index,
+        );
+
+        subtitleList.insert(i, newSubtitle);
+        subtitleList.remove(previousSubtitle);
+        subtitleList.remove(currentSubtitle);
+      }
+    }
+
+    if (subtitleList.length >= 2) {
+      var secondLastSubtitle = subtitleList[subtitleList.length - 2];
+      var lastSubtitle = subtitleList[subtitleList.length - 1];
+      if (lastSubtitle.end.inMilliseconds <
+          secondLastSubtitle.start.inMilliseconds) {
+        subtitleList.remove(lastSubtitle);
+      }
+    }
+
+    for (var i = 0; i < subtitleList.length; i++) {
+      subtitleList[i].index = i + 1;
+      subtitleList[i].data = sanitizeSubtitleArtifacts(subtitleList[i].data);
+    }
+  }
+
+  subtitleList.sort((s1, s2) => s1.compareTo(s2));
+
+  return subtitleList;
+}
+
+/// The base class of all subtitles controller object.
+abstract class ISubtitleController {
+  //! Final fields
+  /// Store the subtitle provider.
+  final SubtitleProvider _provider;
+
+  /// Store the subtitles objects after decoded.
+  final List<Subtitle> subtitles;
+
+  //! Later and Nullable fields
+  /// The parser class, maybe still null if you are not initial the controller.
+  ISubtitleParser? _parser;
+
+  ISubtitleController({
+    required SubtitleProvider provider,
+  })  : _provider = provider,
+        subtitles = List.empty(growable: true);
+
+  //! Getters
+
+  /// Get the parser class
+  ISubtitleParser get parser {
+    if (initialized) return _parser!;
+    throw NotInitializedException();
+  }
+
+  /// Return the current subtitle provider
+  SubtitleProvider get provider => _provider;
+
+  /// Check it the controller is initial or not.
+  bool initialized = false;
+
+  //! Abstract methods
+  /// Use this method to customize your search algorithm.
+  Subtitle? durationSearch(Duration duration);
+
+  /// To get one or more subtitles in same duration range.
+  List<Subtitle> multiDurationSearch(Duration duration);
+
+  //! Virual methods
+  Future<void> initial() async {
+    if (initialized) return;
+    final providerObject = await _provider.getSubtitle();
+    _parser = SubtitleParser(providerObject);
+
+    List<Subtitle> parsed = [];
+    if (_parser!.object.type != SubtitleType.srt) {
+      parsed = await _parser!.parsing();
+    } else {
+      parsed = await compute(getSubtitlesData, providerObject.data);
+    }
+
+    List<Subtitle> flattened = await compute(flattenSubtitles, parsed);
+    subtitles.addAll(flattened);
+
+    initialized = true;
+  }
+
+  /// Get all subtitles as a single string, you can separate between subtitles
+  /// using `separator`, the default is `, `.
+  String getAll([String separator = ', ']) => subtitles.join(separator);
 }
 
 /// The default class to controller subtitles, you can use it or extends

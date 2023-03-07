@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../core/exceptions.dart';
 import '../core/models.dart';
 import 'regexes.dart';
@@ -17,7 +19,7 @@ abstract class ISubtitleParser {
 
   /// Abstract method parsing the data from any format and return it as a list of
   /// subtitles.
-  List<Subtitle> parsing();
+  Future<List<Subtitle>> parsing();
 
   /// Normalize the text data of subtitle, remove unnecessary characters.
   String normalize(String txt) {
@@ -26,6 +28,78 @@ abstract class ISubtitleParser {
         .replaceAll(RegExp(r' {2,}'), ' ')
         .trim();
   }
+}
+
+class ParserIsolateParams {
+  ParserIsolateParams({
+    required this.data,
+    required this.regExp,
+    required this.type,
+  });
+
+  final String data;
+  final RegExp regExp;
+  final SubtitleType type;
+}
+
+Future<List<Subtitle>> parseSubtitles(ParserIsolateParams params) async {
+  final regExp = params.regExp;
+  var matches = regExp.allMatches(params.data);
+
+  var subtitles = List<Subtitle>.empty(growable: true);
+
+  for (var i = 0; i < matches.length; i++) {
+    var matcher = matches.elementAt(i);
+
+    var index = i + 1;
+    if (params.type == SubtitleType.vtt || params.type == SubtitleType.srt) {
+      index = int.parse(matcher.group(1) ?? '${i + 1}');
+    }
+
+    var startMins = 0;
+    var startHours = 0;
+    if (matcher.group(3) == null && matcher.group(2) != null) {
+      startMins = int.parse(matcher.group(2)?.replaceAll(':', '') ?? '0');
+    } else {
+      startMins = int.parse(matcher.group(3)?.replaceAll(':', '') ?? '0');
+      startHours = int.parse(matcher.group(2)?.replaceAll(':', '') ?? '0');
+    }
+
+    var start = Duration(
+      seconds: int.parse(matcher.group(4)?.replaceAll(':', '') ?? '0'),
+      minutes: startMins,
+      hours: startHours,
+      milliseconds: int.parse(matcher.group(5) ?? '0'),
+    );
+
+    var endMins = 0;
+    var endHours = 0;
+
+    if (matcher.group(7) == null && matcher.group(6) != null) {
+      endMins = int.parse(matcher.group(6)?.replaceAll(':', '') ?? '0');
+    } else {
+      endMins = int.parse(matcher.group(7)?.replaceAll(':', '') ?? '0');
+      endHours = int.parse(matcher.group(6)?.replaceAll(':', '') ?? '0');
+    }
+
+    var end = Duration(
+      seconds: int.parse(matcher.group(8)?.replaceAll(':', '') ?? '0'),
+      minutes: endMins,
+      hours: endHours,
+      milliseconds: int.parse(matcher.group(9) ?? '0'),
+    );
+
+    final data = matcher.group(11)?.trim() ?? '';
+
+    subtitles.add(Subtitle(
+      start: start,
+      end: end,
+      data: data,
+      index: index,
+    ));
+  }
+
+  return subtitles;
 }
 
 /// Usable class to parsing subtitle file. It is used to analyze and convert subtitle
@@ -49,87 +123,20 @@ class SubtitleParser extends ISubtitleParser {
   }
 
   @override
-  List<Subtitle> parsing({
+  Future<List<Subtitle>> parsing({
     bool shouldNormalizeText = true,
-  }) {
+  }) async {
     /// Stored variable for subtitles.
     final pattern = regexObject.pattern;
 
     var regExp = RegExp(pattern);
-    var matches = regExp.allMatches(object.data);
-
-    return _decodeSubtitleFormat(
-      matches,
-      regexObject.type,
-      shouldNormalizeText,
+    var params = ParserIsolateParams(
+      data: object.data,
+      regExp: regExp,
+      type: regexObject.type,
     );
-  }
 
-  /// Parsing subtitle formats to subtitle and store it in [_subtitles] field.
-  List<Subtitle> _decodeSubtitleFormat(
-    Iterable<RegExpMatch> matches,
-    SubtitleType type,
-    bool shouldNormalizeText,
-  ) {
-    var subtitles = List<Subtitle>.empty(growable: true);
-
-    for (var i = 0; i < matches.length; i++) {
-      var matcher = matches.elementAt(i);
-
-      var index = i + 1;
-      if (type == SubtitleType.vtt || type == SubtitleType.srt) {
-        index = int.parse(matcher.group(1) ?? '${i + 1}');
-      }
-
-      final data = matcher.group(11)?.trim() ?? '';
-
-      subtitles.add(Subtitle(
-        start: _getStartDuration(matcher),
-        end: _getEndDuration(matcher),
-        data: data,
-        index: index,
-      ));
-    }
-
-    return subtitles;
-  }
-
-  /// Fetch the start duration of subtitle by decoding the group inside [matcher].
-  Duration _getStartDuration(RegExpMatch matcher) {
-    var minutes = 0;
-    var hours = 0;
-    if (matcher.group(3) == null && matcher.group(2) != null) {
-      minutes = int.parse(matcher.group(2)?.replaceAll(':', '') ?? '0');
-    } else {
-      minutes = int.parse(matcher.group(3)?.replaceAll(':', '') ?? '0');
-      hours = int.parse(matcher.group(2)?.replaceAll(':', '') ?? '0');
-    }
-
-    return Duration(
-      seconds: int.parse(matcher.group(4)?.replaceAll(':', '') ?? '0'),
-      minutes: minutes,
-      hours: hours,
-      milliseconds: int.parse(matcher.group(5) ?? '0'),
-    );
-  }
-
-  /// Fetch the end duration of subtitle by decoding the group inside [matcher].
-  Duration _getEndDuration(RegExpMatch matcher) {
-    var minutes = 0;
-    var hours = 0;
-
-    if (matcher.group(7) == null && matcher.group(6) != null) {
-      minutes = int.parse(matcher.group(6)?.replaceAll(':', '') ?? '0');
-    } else {
-      minutes = int.parse(matcher.group(7)?.replaceAll(':', '') ?? '0');
-      hours = int.parse(matcher.group(6)?.replaceAll(':', '') ?? '0');
-    }
-    return Duration(
-      seconds: int.parse(matcher.group(8)?.replaceAll(':', '') ?? '0'),
-      minutes: minutes,
-      hours: hours,
-      milliseconds: int.parse(matcher.group(9) ?? '0'),
-    );
+    return await compute(parseSubtitles, params);
   }
 }
 
@@ -153,7 +160,7 @@ class CustomSubtitleParser extends ISubtitleParser {
   }) : super(object);
 
   @override
-  List<Subtitle> parsing() {
+  Future<List<Subtitle>> parsing() async {
     var regExp = RegExp(regexObject.pattern);
     var matches = regExp.allMatches(object.data);
     return onParsing(matches);
