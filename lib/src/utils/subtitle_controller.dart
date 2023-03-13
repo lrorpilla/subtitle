@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:html_unescape/html_unescape.dart';
 
 import '../core/exceptions.dart';
 import '../core/models.dart';
@@ -71,8 +72,13 @@ List<Subtitle> flattenSubtitles(List<Subtitle> subtitleList) {
     sanitizedContent = sanitizedContent.replaceAll('&nbsp;', '\'');
     sanitizedContent = sanitizedContent.replaceAll('&quot;', '\"');
     sanitizedContent = sanitizedContent.replaceAll('&amp;', '');
+    sanitizedContent = sanitizedContent.replaceAll('&lrm;', '');
+    sanitizedContent = sanitizedContent.replaceAll('&rlm;', '');
     sanitizedContent = sanitizedContent.replaceAll('\\n', '\n');
     sanitizedContent = sanitizedContent.replaceAll('​', '');
+
+    final unescape = HtmlUnescape();
+    sanitizedContent = unescape.convert(sanitizedContent);
 
     return sanitizedContent;
   }
