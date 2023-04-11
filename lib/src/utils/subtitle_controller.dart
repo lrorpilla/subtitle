@@ -110,7 +110,7 @@ List<Subtitle> flattenSubtitles(List<Subtitle> subtitleList) {
 
   // Attempt this recombination a lot to stamp out stubborn repeats
   // This is not the best way to do this
-  for (var i = 0; i < 7; i++) {
+  for (var i = 0; i < 10; i++) {
     // Recombine subtitles if they are the same value and next to each other
     for (var i = 1; i < subtitleList.length; i++) {
       var previousSubtitle = subtitleList[i - 1];
