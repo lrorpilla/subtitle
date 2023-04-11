@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:html_unescape/html_unescape.dart';
+import 'package:remove_emoji/remove_emoji.dart';
 
 import '../core/exceptions.dart';
 import '../core/models.dart';
@@ -77,8 +78,8 @@ List<Subtitle> flattenSubtitles(List<Subtitle> subtitleList) {
     sanitizedContent = sanitizedContent.replaceAll('\\n', '\n');
     sanitizedContent = sanitizedContent.replaceAll('​', '');
 
-    final unescape = HtmlUnescape();
-    sanitizedContent = unescape.convert(sanitizedContent);
+    sanitizedContent = HtmlUnescape().convert(sanitizedContent);
+    sanitizedContent = RemoveEmoji().removemoji(sanitizedContent);
 
     return sanitizedContent;
   }
